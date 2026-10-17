@@ -1,0 +1,12 @@
+[
+  { "question": "dockerd", "expected": ["Docker daemon (`dockerd`)", "daemon process (`dockerd`)"] },
+  { "question": "SIGKILL", "expected": ["waits 30 seconds"] },
+  { "question": "ef_search", "expected": ["Size of the dynamic candidate list during query execution"] },
+  { "question": "ef_construction", "expected": ["Size of the dynamic candidate list during index build"] },
+  { "question": "Sev-1", "expected": ["Sev-1 (Critical)"] },
+  { "question": "tmpfs", "expected": ["tmpfs mounts"] },
+  { "question": "JSONB containment", "expected": ["JSONB containment with `@>` operator"] },
+  { "question": "cgroups freezer", "expected": ["cgroups freezer subsystem"] },
+  { "question": "1,500 EUR", "expected": ["Hardware Budget: 1,500 EUR"] },
+  { "question": "bind mounts", "expected": ["Bind Mounts"] }
+]

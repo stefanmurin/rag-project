@@ -1,0 +1,27 @@
+[
+  { "question": "How long does Docker wait before force-killing a container when I stop it?", "expected": ["waits 30 seconds"] },
+  { "question": "Which kind of Docker storage is recommended for keeping data?", "expected": ["Volumes are the best way to persist data in Docker"] },
+  { "question": "What are the parts that make up the Docker Engine?", "expected": ["three primary components"] },
+  { "question": "How does the Docker client communicate with the daemon?", "expected": ["REST API over UNIX sockets"] },
+  { "question": "Which index type should I pick for range queries in Postgres?", "expected": ["B-Tree is optimal for equality queries"] },
+  { "question": "Why are inserts slower when a table has a GIN index?", "expected": ["The write overhead for GIN is higher"] },
+  { "question": "What settings can I tune to get better recall from HNSW?", "expected": ["Key parameters for tuning HNSW"] },
+  { "question": "How does HNSW organise vectors internally?", "expected": ["multi-layer graph"] },
+  { "question": "Which operator do I use to match a tsvector against a query?", "expected": ["Full-text search with `@@` operator"] },
+  { "question": "When is the daily standup meeting?", "expected": ["10:15 AM CET"] },
+  { "question": "How much money can I spend on a new laptop?", "expected": ["Hardware Budget: 1,500 EUR"] },
+  { "question": "When can I run schema migrations that lock tables?", "expected": ["Sundays between 02:00 AM and 04:00 AM UTC"] },
+  { "question": "How quickly must we respond to a critical incident?", "expected": ["initial response within 15 minutes"] },
+  { "question": "How big is the yearly budget for courses and conferences?", "expected": ["800 EUR per calendar year"] },
+  { "question": "How am I allowed to run a debugging query on production data?", "expected": ["read-only replica"] },
+  { "question": "What happens to my data when I delete a container?", "expected": ["everything stored inside it disappears"] },
+  { "question": "How do I stop secrets from being committed to my repo?", "expected": [".env file with secret values"] },
+  { "question": "Why must questions and documents use the same embedding model?", "expected": ["otherwise the vectors cannot be compared"] },
+  { "question": "What is the difference between creating and running a container?", "expected": ["Creates and starts a container in a single operation"] },
+  { "question": "Which mount type lives only in memory?", "expected": ["Stored in the host system's memory only"] },
+
+  { "question": "What is the capital of France?" },
+  { "question": "How do I bake sourdough bread?" },
+  { "question": "How do I configure a Kubernetes ingress controller?" },
+  { "question": "What is the company's vacation policy?" }
+]

@@ -40,30 +40,35 @@ export async function searchFullText(query: string, limit = 5) {
     .limit(limit);
 }
 
-export async function searchHybrid(query: string, limit = 5, k = 60) {
+export async function searchHybrid(
+  query: string,
+  limit = 5,
+  k = 60,
+  ftsWeight = Number(process.env.FTS_WEIGHT ?? 0.5),
+) {
   const [vec, fts] = await Promise.all([
     searchVector(query, 20),
     searchFullText(query, 20),
   ]);
 
   const merged = new Map<number, { id: number; title: string; content: string; score: number }>();
-  const add = (rows: { id: number; title: string; content: string }[]) => {
+  const add = (rows: { id: number; title: string; content: string }[], weight: number) => {
     rows.forEach((r, i) => {
       const prev = merged.get(r.id);
       merged.set(r.id, {
         id: r.id,
         title: r.title,
         content: r.content,
-        score: (prev?.score ?? 0) + 1 / (k + i + 1),
+        score: (prev?.score ?? 0) + weight / (k + i + 1),
       });
     });
   };
-  add(vec);
-  add(fts);
+  add(vec, 1);
+  add(fts, ftsWeight);
 
   return {
     results: [...merged.values()].sort((a, b) => b.score - a.score).slice(0, limit),
-    bestVectorDistance: vec[0] ? Number(vec[0].distance) : null, // pre prah "nenašiel som"
+    bestVectorDistance: vec[0] ? Number(vec[0].distance) : null,
   };
 }
 
