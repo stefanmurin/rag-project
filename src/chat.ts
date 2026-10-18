@@ -5,6 +5,8 @@ const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
 const CHAT_MODEL = process.env.CHAT_MODEL ?? "llama3.2";
 // ak je najlepší chunk ďalej než táto vzdialenosť, LLM vôbec nevoláme
 const MAX_DISTANCE = Number(process.env.MAX_DISTANCE ?? 0.55);
+// koľko chunkov ide do promptu (menej = rýchlejšie spracovanie)
+const TOP_K = Number(process.env.TOP_K ?? 3);
 const NOT_FOUND = "I could not find this in the documents.";
 
 type Source = { n: number; id: number; title: string; content: string };
@@ -17,8 +19,10 @@ function buildPrompt(question: string, sources: Source[]) {
   const system = [
     "You answer questions using ONLY the numbered sources provided by the user.",
     "Cite the sources you use as [1], [2] directly after the sentence they support.",
+    "Every sentence of your answer must end with a citation.",
+    "Do not add any sentence that is not directly supported by a source. Do not generalize or add extra information.",
     `If the sources do not contain the answer, reply exactly: "${NOT_FOUND}"`,
-    "Do not use outside knowledge. Be concise.",
+    "Do not use outside knowledge. Answer in one to three sentences.",
   ].join("\n");
 
   const user = `Sources:\n\n${context}\n\nQuestion: ${question}`;
@@ -26,7 +30,7 @@ function buildPrompt(question: string, sources: Source[]) {
 }
 
 export async function answer(question: string) {
-  const { results, bestVectorDistance } = await searchHybrid(question, 5);
+  const { results, bestVectorDistance } = await searchHybrid(question, TOP_K);
 
   // 1. lacný filter: nič dosť blízko, nevoláme LLM
   if (results.length === 0 || bestVectorDistance === null || bestVectorDistance > MAX_DISTANCE) {
