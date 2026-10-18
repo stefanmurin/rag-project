@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask your documents</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --paper: #f4f6f3;
+    --ink: #17252b;
+    --muted: #5b6b70;
+    --rule: #cbd3cf;
+    --cite: #2a3bd6;
+    --mark: #ffe27a;
+    --mark-ink: #17252b;
+    --error: #b3261e;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0f1719;
+      --ink: #e6ecea;
+      --muted: #93a4a9;
+      --rule: #2b3b40;
+      --cite: #9aa7ff;
+      --mark: #6b5a00;
+      --mark-ink: #fff3c4;
+      --error: #ff8a80;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  .page { max-width: 72rem; margin: 0 auto; padding: 2.5rem 1rem 0; }
+
+  .intro h1 {
+    font-family: var(--serif);
+    font-size: 2rem;
+    line-height: 1.15;
+    font-weight: 600;
+    margin: 0 0 0.6rem;
+  }
+  .intro .lede { margin: 0; max-width: 38rem; color: var(--muted); }
+
+  .examples { margin: 2rem 0 0; max-width: 38rem; }
+  .examples p { margin: 0 0 0.6rem; color: var(--muted); font-size: 0.9375rem; }
+  .examples ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+  .example {
+    display: block; width: 100%; text-align: left;
+    font: 1.05rem/1.4 var(--serif); color: var(--ink);
+    background: none; border: 0; border-left: 2px solid var(--rule);
+    padding: 0.4rem 0.8rem; cursor: pointer;
+  }
+  .example:hover { border-left-color: var(--cite); }
+
+  .messages { list-style: none; margin: 2rem 0 0; padding: 0; }
+  .msg {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.75rem 0;
+    border-top: 1px solid var(--rule);
+  }
+  .q {
+    font-family: var(--serif); font-size: 1.3rem; line-height: 1.3;
+    font-weight: 600; margin: 0 0 0.75rem;
+  }
+  .a {
+    font-family: var(--serif); font-size: 1.125rem; line-height: 1.65;
+    margin: 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .a.muted { color: var(--muted); }
+
+  .status {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-top: 0.4rem; font-size: 0.9375rem; color: var(--muted);
+  }
+  .status:empty { display: none; }
+  .status.error { color: var(--error); }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--cite);
+    flex: none; animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.25; } }
+
+  .cite {
+    font: 600 0.75rem/1.5 var(--sans); color: var(--cite);
+    background: transparent; border: 1px solid var(--cite); border-radius: 4px;
+    padding: 0 0.4em; margin: 0 0.1em; cursor: pointer; vertical-align: 0.1em;
+  }
+  .cite:hover, .cite[aria-pressed="true"] { background: var(--cite); color: var(--paper); }
+  .cite-plain { color: var(--muted); }
+
+  .s { margin-top: 1.5rem; align-self: start; }
+  .src {
+    margin: 0 0 1.25rem; padding-left: 0.9rem; border-left: 2px solid var(--rule);
+  }
+  .src.active { border-left-color: var(--cite); }
+  .src-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--muted); }
+  .src-n {
+    font-weight: 600; color: var(--cite); border: 1px solid var(--cite);
+    border-radius: 4px; padding: 0 0.4em; line-height: 1.5;
+  }
+  .src-doc { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .src-path { margin: 0.25rem 0 0; font-size: 0.8125rem; color: var(--muted); }
+  .src-text {
+    margin: 0.5rem 0 0 -0.25rem; padding: 0.1rem 0.25rem; border-radius: 2px;
+    font-family: var(--serif); font-size: 0.95rem; line-height: 1.55;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .src.active .src-text { background: var(--mark); color: var(--mark-ink); }
+  .note {
+    margin: 0 0 1.25rem; padding-left: 0.9rem; border-left: 2px solid var(--rule);
+    font-size: 0.9rem; color: var(--muted);
+  }
+
+  .composer {
+    position: sticky; bottom: 0; margin-top: 1rem; padding: 1rem 0 1.25rem;
+    background: var(--paper); border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem;
+    max-width: 38rem;
+  }
+  .composer textarea {
+    font: 1.05rem/1.45 var(--serif); color: var(--ink); background: var(--paper);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 0.6rem 0.75rem;
+    min-height: 3rem; resize: vertical;
+  }
+  .composer button {
+    font: 600 0.95rem var(--sans); color: var(--paper); background: var(--ink);
+    border: 1px solid var(--ink); border-radius: 6px; padding: 0 1.2rem;
+    min-height: 2.75rem; align-self: end; cursor: pointer;
+  }
+  .composer button.stop { background: transparent; color: var(--ink); }
+
+  textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--cite); outline-offset: 2px;
+  }
+
+  @media (min-width: 40rem) {
+    .page { padding-left: 2rem; padding-right: 2rem; }
+  }
+  @media (min-width: 62rem) {
+    .msg {
+      grid-template-columns: minmax(0, 38rem) minmax(15rem, 21rem);
+      column-gap: 3rem; justify-content: start;
+    }
+    .q, .a, .status { grid-column: 1; }
+    .s { grid-column: 2; grid-row: 2 / span 2; margin-top: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="intro">
+    <h1>Ask your documents</h1>
+    <p class="lede">Answers come only from the files you ingested. Each one shows the passage it was taken from.</p>
+  </header>
+
+  <section class="examples" id="examples" aria-label="Example questions">
+    <p>Not sure where to start? Try one of these.</p>
+    <ul>
+      <li><button type="button" class="example">When can I run schema migrations that lock tables?</button></li>
+      <li><button type="button" class="example">What happens to my data when I delete a container?</button></li>
+      <li><button type="button" class="example">Which index type should I pick for range queries in Postgres?</button></li>
+      <li><button type="button" class="example">How do I stop secrets from being committed to my repo?</button></li>
+    </ul>
+  </section>
+
+  <ol class="messages" id="messages"></ol>
+
+  <form class="composer" id="composer">
+    <label class="sr-only" for="question">Your question</label>
+    <textarea id="question" rows="2" maxlength="500" placeholder="Ask a question about your documents"></textarea>
+    <button type="submit" id="send">Ask</button>
+  </form>
+  <div class="sr-only" aria-live="polite" id="announce"></div>
+</div>
+
+<script>
+  const NOT_FOUND = "I could not find this in the documents.";
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const messagesEl = document.getElementById("messages");
+  const examplesEl = document.getElementById("examples");
+  const form = document.getElementById("composer");
+  const input = document.getElementById("question");
+  const send = document.getElementById("send");
+  const announce = document.getElementById("announce");
+
+  let controller = null; // aktívna požiadavka, ak nejaká beží
+
+  // na dotykových zariadeniach nevyvolávame klávesnicu sami
+  const canAutofocus = matchMedia("(pointer: fine)").matches;
+  if (canAutofocus) input.focus();
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function setBusy(busy) {
+    send.textContent = busy ? "Stop" : "Ask";
+    send.classList.toggle("stop", busy);
+  }
+
+  // ---------- vykresľovanie ----------
+
+  function renderAnswer(m) {
+    const a = m.nodes.answer;
+    a.replaceChildren();
+    const valid = new Set(m.citations.map((c) => c.n));
+
+    for (const part of m.text.split(/(\[\d+\])/)) {
+      const match = part.match(/^\[(\d+)\]$/);
+      if (match && m.status === "done" && valid.has(Number(match[1]))) {
+        const n = Number(match[1]);
+        const b = el("button", "cite", String(n));
+        b.type = "button";
+        b.setAttribute("aria-label", "Show source " + n);
+        b.setAttribute("aria-pressed", "false");
+        b.dataset.n = String(n);
+        b.addEventListener("click", () => activate(m, n));
+        b.addEventListener("mouseenter", () => activate(m, n, false));
+        a.append(b);
+      } else if (match) {
+        a.append(el("span", "cite-plain", part));
+      } else if (part) {
+        a.append(part);
+      }
+    }
+    a.classList.toggle("muted", m.status === "done" && m.text === NOT_FOUND);
+    a.setAttribute("aria-busy", String(m.status !== "done"));
+  }
+
+  function splitPath(content) {
+    const i = content.indexOf("\n\n");
+    if (i > 0) {
+      const first = content.slice(0, i);
+      if (!first.includes("\n") && first.length <= 160 && !/[.:!?]$/.test(first)) {
+        return { path: first, body: content.slice(i + 2) };
+      }
+    }
+    return { path: "", body: content };
+  }
+
+  function sourceEl(c) {
+    const { path, body } = splitPath(c.content);
+    const art = el("article", "src");
+    art.dataset.n = String(c.n);
+
+    const head = el("div", "src-head");
+    head.append(el("span", "src-n", String(c.n)), el("span", "src-doc", c.title));
+    art.append(head);
+    if (path) art.append(el("p", "src-path", path));
+    art.append(el("blockquote", "src-text", body));
+    return art;
+  }
+
+  function renderSources(m) {
+    const s = m.nodes.sources;
+    s.replaceChildren();
+    if (m.status !== "done") return;
+
+    if (m.skipped) {
+      const d = m.distance === null ? "" : ` (distance ${m.distance.toFixed(2)})`;
+      s.append(el("p", "note", `No passage was close enough to this question${d}, so the model was not asked.`));
+    } else if (m.text === NOT_FOUND) {
+      s.append(el("p", "note", "The retrieved passages did not contain an answer."));
+    } else if (m.citations.length === 0) {
+      s.append(el("p", "note", "This answer cites no source. Treat it with care."));
+    }
+    for (const c of m.citations) s.append(sourceEl(c));
+  }
+
+  function activate(m, n, scroll = true) {
+    const root = m.nodes.root;
+    root.querySelectorAll(".src").forEach((e) => e.classList.toggle("active", Number(e.dataset.n) === n));
+    root.querySelectorAll(".cite").forEach((e) => e.setAttribute("aria-pressed", String(Number(e.dataset.n) === n)));
+    const target = root.querySelector(`.src[data-n="${n}"]`);
+    if (scroll && target) target.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  function addMessage(question) {
+    const root = el("li", "msg");
+    const nodes = {
+      root,
+      question: el("h2", "q", question),
+      answer: el("p", "a"),
+      status: el("div", "status"),
+      sources: el("aside", "s"),
+    };
+    nodes.status.setAttribute("role", "status");
+    nodes.sources.setAttribute("aria-label", "Sources for this answer");
+    root.append(nodes.question, nodes.answer, nodes.status, nodes.sources);
+    messagesEl.append(root);
+
+    const m = { text: "", citations: [], status: "waiting", skipped: false, distance: null, nodes };
+    root.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+    return m;
+  }
+
+  function setStatus(m, text, isError = false) {
+    const s = m.nodes.status;
+    s.replaceChildren();
+    s.classList.toggle("error", isError);
+    if (!text) return;
+    if (!isError && m.status === "waiting") s.append(el("span", "dot"));
+    s.append(el("span", "", text));
+  }
+
+  // ---------- komunikácia so serverom ----------
+
+  function handleEvent(m, ev) {
+    if (ev.type === "token") {
+      if (m.status === "waiting") {
+        m.status = "streaming";
+        setStatus(m, "");
+      }
+      m.text += ev.text;
+      renderAnswer(m);
+    } else if (ev.type === "done") {
+      m.text = ev.answer;
+      m.citations = ev.citations;
+      m.skipped = ev.skippedLlm;
+      m.distance = ev.bestVectorDistance;
+      m.status = "done";
+      setStatus(m, "");
+      renderAnswer(m);
+      renderSources(m);
+      announce.textContent = "Answer ready.";
+    } else if (ev.type === "error") {
+      m.status = "error";
+      setStatus(m, `The model could not answer: ${ev.message}. Check that Ollama is running.`, true);
+    }
+  }
+
+  async function ask(question) {
+    const m = addMessage(question);
+    examplesEl.hidden = true;
+    announce.textContent = "";
+    controller = new AbortController();
+    setBusy(true);
+
+    const t0 = Date.now();
+    const tick = () => {
+      if (m.status === "waiting") {
+        setStatus(m, `Searching your documents and reading sources… ${Math.floor((Date.now() - t0) / 1000)} s`);
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+
+    try {
+      const res = await fetch("/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        throw new Error(res.status === 422 ? "The question must be 1 to 500 characters long." : `The server answered with status ${res.status}.`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let i;
+        while ((i = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, i);
+          buffer = buffer.slice(i + 2);
+          const line = block.split("\n").find((l) => l.startsWith("data: "));
+          if (line) handleEvent(m, JSON.parse(line.slice(6)));
+        }
+      }
+      if (m.status !== "done" && m.status !== "error") {
+        m.status = "error";
+        setStatus(m, "The connection closed before the answer was complete.", true);
+      }
+    } catch (e) {
+      if (e.name === "AbortError") {
+        m.status = "stopped";
+        setStatus(m, "Stopped.");
+        m.nodes.answer.setAttribute("aria-busy", "false");
+      } else {
+        m.status = "error";
+        const text = e instanceof TypeError
+          ? "Can't reach the server. Check that it is running (bun run src/server.ts)."
+          : e.message || "Something went wrong.";
+        setStatus(m, text, true);
+      }
+    } finally {
+      clearInterval(timer);
+      controller = null;
+      setBusy(false);
+      if (canAutofocus) input.focus();
+    }
+  }
+
+  // ---------- ovládanie ----------
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (controller) {
+      controller.abort();
+      return;
+    }
+    const question = input.value.trim();
+    if (!question) return;
+    input.value = "";
+    ask(question);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      if (!controller) form.requestSubmit();
+    }
+  });
+
+  document.querySelectorAll(".example").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (!controller) ask(b.textContent);
+    }),
+  );
+</script>
+</body>
+</html>

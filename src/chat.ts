@@ -1,5 +1,6 @@
 import { client } from "./db";
 import { searchHybrid } from "./search";
+import { readNdjson } from "./ndjson";
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
 const CHAT_MODEL = process.env.CHAT_MODEL ?? "llama3.2";
@@ -7,9 +8,25 @@ const CHAT_MODEL = process.env.CHAT_MODEL ?? "llama3.2";
 const MAX_DISTANCE = Number(process.env.MAX_DISTANCE ?? 0.55);
 // koľko chunkov ide do promptu (menej = rýchlejšie spracovanie)
 const TOP_K = Number(process.env.TOP_K ?? 3);
-const NOT_FOUND = "I could not find this in the documents.";
+export const NOT_FOUND = "I could not find this in the documents.";
 
-type Source = { n: number; id: number; title: string; content: string };
+export type Source = { n: number; id: number; title: string; content: string };
+export type Citation = { n: number; chunkId: number; title: string; content: string };
+export type DoneEvent = {
+  type: "done";
+  answer: string;
+  citations: Citation[];
+  skippedLlm: boolean;
+  bestVectorDistance: number | null;
+};
+export type StreamEvent = { type: "token"; text: string } | DoneEvent;
+
+export const toCitation = (s: Source): Citation => ({
+  n: s.n,
+  chunkId: s.id,
+  title: s.title,
+  content: s.content,
+});
 
 function buildPrompt(question: string, sources: Source[]) {
   const context = sources
@@ -29,18 +46,12 @@ function buildPrompt(question: string, sources: Source[]) {
   return { system, user };
 }
 
-export async function answer(question: string) {
+// 1. vyhľadanie + lacný filter: nič dosť blízko, nevoláme LLM
+async function retrieve(question: string) {
   const { results, bestVectorDistance } = await searchHybrid(question, TOP_K);
 
-  // 1. lacný filter: nič dosť blízko, nevoláme LLM
   if (results.length === 0 || bestVectorDistance === null || bestVectorDistance > MAX_DISTANCE) {
-    return {
-      answer: NOT_FOUND,
-      cited: [] as Source[],
-      sources: [] as Source[],
-      skippedLlm: true,
-      bestVectorDistance,
-    };
+    return { skipped: true as const, bestVectorDistance, sources: [] as Source[] };
   }
 
   const sources: Source[] = results.map((r, i) => ({
@@ -49,15 +60,16 @@ export async function answer(question: string) {
     title: r.title,
     content: r.content,
   }));
+  return { skipped: false as const, bestVectorDistance, sources };
+}
 
-  // 2. generovanie odpovede z očíslovaných úryvkov
-  const { system, user } = buildPrompt(question, sources);
-  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+function ollamaChat(system: string, user: string, stream: boolean, signal?: AbortSignal) {
+  return fetch(`${OLLAMA_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: CHAT_MODEL,
-      stream: false,
+      stream,
       keep_alive: "2m", // model sa po 2 minútach nečinnosti uvoľní z RAM
       options: { temperature: 0 },
       messages: [
@@ -65,23 +77,89 @@ export async function answer(question: string) {
         { role: "user", content: user },
       ],
     }),
+    signal,
   });
-  if (!res.ok) {
-    throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
+}
+
+// ktoré zdroje model skutočne citoval (ignorujeme neexistujúce čísla)
+function citedFrom(text: string, sources: Source[]): Source[] {
+  const nums = new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+  return sources.filter((s) => nums.has(s.n));
+}
+
+// odpoveď naraz (bez streamovania)
+export async function answer(question: string) {
+  const r = await retrieve(question);
+  if (r.skipped) {
+    return {
+      answer: NOT_FOUND,
+      cited: [] as Source[],
+      sources: [] as Source[],
+      skippedLlm: true,
+      bestVectorDistance: r.bestVectorDistance,
+    };
   }
+
+  const { system, user } = buildPrompt(question, r.sources);
+  const res = await ollamaChat(system, user, false);
+  if (!res.ok) throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
+
   const data = (await res.json()) as { message: { content: string } };
   const text = data.message.content.trim();
 
-  // 3. ktoré zdroje model skutočne citoval (ignorujeme neexistujúce čísla)
-  const citedNumbers = new Set(
-    [...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])),
-  );
-  const cited = sources.filter((s) => citedNumbers.has(s.n));
-
-  return { answer: text, cited, sources, skippedLlm: false, bestVectorDistance };
+  return {
+    answer: text,
+    cited: citedFrom(text, r.sources),
+    sources: r.sources,
+    skippedLlm: false,
+    bestVectorDistance: r.bestVectorDistance,
+  };
 }
 
-// použitie: bun run src/chat.ts "otázka"
+// odpoveď po kúskoch: najprv "token" udalosti, na konci jedna "done" s citáciami
+export async function* answerStream(
+  question: string,
+  signal?: AbortSignal,
+): AsyncGenerator<StreamEvent> {
+  const r = await retrieve(question);
+
+  if (r.skipped) {
+    yield { type: "token", text: NOT_FOUND };
+    yield {
+      type: "done",
+      answer: NOT_FOUND,
+      citations: [],
+      skippedLlm: true,
+      bestVectorDistance: r.bestVectorDistance,
+    };
+    return;
+  }
+
+  const { system, user } = buildPrompt(question, r.sources);
+  const res = await ollamaChat(system, user, true, signal);
+  if (!res.ok) throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
+
+  let full = "";
+  for await (const chunk of readNdjson<{ message?: { content?: string }; error?: string }>(res)) {
+    if (chunk.error) throw new Error(chunk.error);
+    const text = chunk.message?.content ?? "";
+    if (text) {
+      full += text;
+      yield { type: "token", text };
+    }
+  }
+
+  const final = full.trim();
+  yield {
+    type: "done",
+    answer: final,
+    citations: citedFrom(final, r.sources).map(toCitation),
+    skippedLlm: false,
+    bestVectorDistance: r.bestVectorDistance,
+  };
+}
+
+// použitie: bun run src/chat.ts "otázka"  (text sa vypisuje priebežne)
 if (import.meta.main) {
   const question = process.argv.slice(2).join(" ");
   if (!question) {
@@ -90,25 +168,37 @@ if (import.meta.main) {
   }
 
   const t0 = Date.now();
-  const r = await answer(question);
-  const seconds = ((Date.now() - t0) / 1000).toFixed(1);
+  let firstTokenMs: number | null = null;
+  let done: DoneEvent | null = null;
 
-  console.log(`\n${r.answer}\n`);
+  process.stdout.write("\n");
+  for await (const ev of answerStream(question)) {
+    if (ev.type === "token") {
+      if (firstTokenMs === null) firstTokenMs = Date.now() - t0;
+      process.stdout.write(ev.text);
+    } else {
+      done = ev;
+    }
+  }
+  console.log("\n");
 
-  if (r.skippedLlm) {
+  if (done?.skippedLlm) {
     console.log(
-      `(LLM sa nevolal, najlepšia vzdialenosť ${r.bestVectorDistance?.toFixed(3)} > prah ${MAX_DISTANCE})`,
+      `(LLM sa nevolal, najlepšia vzdialenosť ${done.bestVectorDistance?.toFixed(3)} > prah ${MAX_DISTANCE})`,
     );
-  } else if (r.cited.length === 0 && r.answer !== NOT_FOUND) {
+  } else if (done && done.citations.length === 0 && done.answer !== NOT_FOUND) {
     console.log("(pozor: model necitoval žiadny zdroj)");
   }
 
-  if (r.cited.length > 0) {
+  if (done && done.citations.length > 0) {
     console.log("Zdroje:");
-    for (const s of r.cited) {
-      console.log(`  [${s.n}] ${s.title} (chunk ${s.id}): ${s.content.slice(0, 120).replace(/\s+/g, " ")}...`);
+    for (const c of done.citations) {
+      console.log(`  [${c.n}] ${c.title} (chunk ${c.chunkId}): ${c.content.slice(0, 120).replace(/\s+/g, " ")}...`);
     }
   }
-  console.log(`\nČas: ${seconds} s`);
+
+  const total = ((Date.now() - t0) / 1000).toFixed(1);
+  const first = firstTokenMs === null ? "-" : (firstTokenMs / 1000).toFixed(1);
+  console.log(`\nPrvý token: ${first} s, spolu: ${total} s`);
   await client.end();
 }
