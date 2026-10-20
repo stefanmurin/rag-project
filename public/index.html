@@ -164,6 +164,33 @@
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; }
   }
+  /* Upload sekcia */
+    .uploader {
+      margin: 1.5rem 0 0;
+      max-width: 38rem;
+      padding: 1rem;
+      border: 1px dashed var(--rule);
+      border-radius: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+    }
+    .uploader:hover { border-color: var(--cite); }
+    .uploader-btn {
+      font: 600 0.85rem var(--sans);
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 0.35rem 0.75rem;
+      cursor: pointer;
+    }
+    .uploader-btn:hover { border-color: var(--ink); }
+    .uploader-status { width: 100%; color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+    .uploader-status.success { color: var(--cite); }
+    .uploader-status.error { color: var(--error); }
 </style>
 </head>
 <body>
@@ -172,7 +199,13 @@
     <h1>Ask your documents</h1>
     <p class="lede">Answers come only from the files you ingested. Each one shows the passage it was taken from.</p>
   </header>
-
+	<section class="uploader" aria-label="Upload document">
+	    <input type="file" id="docUpload" accept=".md,.pdf,.txt" class="sr-only">
+	    <button type="button" class="uploader-btn" id="uploadPickBtn">Ingest PDF or Markdown</button>
+	    <span id="uploadFileName" class="upload-filename">No file selected</span>
+	    <button type="button" class="uploader-btn" id="uploadSubmitBtn" style="display: none;">Upload & Index</button>
+	    <div id="uploadInfo" class="uploader-status" role="status"></div>
+	  </section>
   <section class="examples" id="examples" aria-label="Example questions">
     <p>Not sure where to start? Try one of these.</p>
     <ul>
@@ -445,6 +478,58 @@
       if (!controller) ask(b.textContent);
     }),
   );
+  // ---------- upload dokumentov ----------
+    const docUpload = document.getElementById("docUpload");
+    const uploadPickBtn = document.getElementById("uploadPickBtn");
+    const uploadFileName = document.getElementById("uploadFileName");
+    const uploadSubmitBtn = document.getElementById("uploadSubmitBtn");
+    const uploadInfo = document.getElementById("uploadInfo");
+  
+    uploadPickBtn.addEventListener("click", () => docUpload.click());
+  
+    docUpload.addEventListener("change", () => {
+      const file = docUpload.files?.[0];
+      if (file) {
+        uploadFileName.textContent = file.name;
+        uploadSubmitBtn.style.display = "inline-block";
+        uploadInfo.textContent = "";
+        uploadInfo.className = "uploader-status";
+      }
+    });
+  
+    uploadSubmitBtn.addEventListener("click", async () => {
+      const file = docUpload.files?.[0];
+      if (!file) return;
+  
+      const fd = new FormData();
+      fd.append("file", file);
+  
+      uploadSubmitBtn.disabled = true;
+      uploadPickBtn.disabled = true;
+      uploadInfo.className = "uploader-status";
+      uploadInfo.textContent = "Extracting text, creating chunks and generating embeddings in Ollama…";
+  
+      try {
+        const res = await fetch("/upload", {
+          method: "POST",
+          body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Upload failed");
+  
+        uploadInfo.className = "uploader-status success";
+        uploadInfo.textContent = `Successfully ingested "${data.title}" into ${data.chunksCount} chunks. You can now ask questions about it!`;
+        docUpload.value = "";
+        uploadFileName.textContent = "No file selected";
+        uploadSubmitBtn.style.display = "none";
+      } catch (err) {
+        uploadInfo.className = "uploader-status error";
+        uploadInfo.textContent = `Upload failed: ${err.message}`;
+      } finally {
+        uploadSubmitBtn.disabled = false;
+        uploadPickBtn.disabled = false;
+      }
+    });
 </script>
 </body>
 </html>
