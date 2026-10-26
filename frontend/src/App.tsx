@@ -20,7 +20,7 @@ export default function App() {
       .catch((err) => console.error("Chyba pri resete DB:", err));
   }, []);
   return (
-    <div className="flex flex-col h-screen max-w-3xl mx-auto p-4 bg-gray-950 text-white">
+    <div className="flex flex-col h-screen mx-auto p-4 bg-gray-950 text-white">
       {/* Hlavička s flexboxom pre názov vľavo a tlačidlo vpravo */}
       <header className="py-3 border-b border-gray-800 flex items-center justify-between">
         <h1 className="font-bold text-lg text-gray-200">RAG Assistant</h1>
