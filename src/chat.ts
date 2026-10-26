@@ -11,7 +11,12 @@ const TOP_K = Number(process.env.TOP_K ?? 3);
 export const NOT_FOUND = "I could not find this in the documents.";
 
 export type Source = { n: number; id: number; title: string; content: string };
-export type Citation = { n: number; chunkId: number; title: string; content: string };
+export type Citation = {
+  n: number;
+  chunkId: number;
+  title: string;
+  content: string;
+};
 export type DoneEvent = {
   type: "done";
   answer: string;
@@ -50,8 +55,16 @@ function buildPrompt(question: string, sources: Source[]) {
 async function retrieve(question: string) {
   const { results, bestVectorDistance } = await searchHybrid(question, TOP_K);
 
-  if (results.length === 0 || bestVectorDistance === null || bestVectorDistance > MAX_DISTANCE) {
-    return { skipped: true as const, bestVectorDistance, sources: [] as Source[] };
+  if (
+    results.length === 0 ||
+    bestVectorDistance === null ||
+    bestVectorDistance > MAX_DISTANCE
+  ) {
+    return {
+      skipped: true as const,
+      bestVectorDistance,
+      sources: [] as Source[],
+    };
   }
 
   const sources: Source[] = results.map((r, i) => ({
@@ -63,14 +76,19 @@ async function retrieve(question: string) {
   return { skipped: false as const, bestVectorDistance, sources };
 }
 
-function ollamaChat(system: string, user: string, stream: boolean, signal?: AbortSignal) {
+function ollamaChat(
+  system: string,
+  user: string,
+  stream: boolean,
+  signal?: AbortSignal,
+) {
   return fetch(`${OLLAMA_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: CHAT_MODEL,
       stream,
-      keep_alive: "2m", // model sa po 2 minútach nečinnosti uvoľní z RAM
+      keep_alive: "5m",
       options: { temperature: 0 },
       messages: [
         { role: "system", content: system },
@@ -83,7 +101,9 @@ function ollamaChat(system: string, user: string, stream: boolean, signal?: Abor
 
 // ktoré zdroje model skutočne citoval (ignorujeme neexistujúce čísla)
 function citedFrom(text: string, sources: Source[]): Source[] {
-  const nums = new Set([...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])));
+  const nums = new Set(
+    [...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])),
+  );
   return sources.filter((s) => nums.has(s.n));
 }
 
@@ -102,7 +122,8 @@ export async function answer(question: string) {
 
   const { system, user } = buildPrompt(question, r.sources);
   const res = await ollamaChat(system, user, false);
-  if (!res.ok) throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
 
   const data = (await res.json()) as { message: { content: string } };
   const text = data.message.content.trim();
@@ -124,10 +145,9 @@ export async function* answerStream(
   const r = await retrieve(question);
 
   if (r.skipped) {
-    yield { type: "token", text: NOT_FOUND };
     yield {
       type: "done",
-      answer: NOT_FOUND,
+      answer: NOT_FOUND, // "I could not find this in the documents."
       citations: [],
       skippedLlm: true,
       bestVectorDistance: r.bestVectorDistance,
@@ -137,10 +157,14 @@ export async function* answerStream(
 
   const { system, user } = buildPrompt(question, r.sources);
   const res = await ollamaChat(system, user, true, signal);
-  if (!res.ok) throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
 
   let full = "";
-  for await (const chunk of readNdjson<{ message?: { content?: string }; error?: string }>(res)) {
+  for await (const chunk of readNdjson<{
+    message?: { content?: string };
+    error?: string;
+  }>(res)) {
     if (chunk.error) throw new Error(chunk.error);
     const text = chunk.message?.content ?? "";
     if (text) {
@@ -193,7 +217,9 @@ if (import.meta.main) {
   if (done && done.citations.length > 0) {
     console.log("Zdroje:");
     for (const c of done.citations) {
-      console.log(`  [${c.n}] ${c.title} (chunk ${c.chunkId}): ${c.content.slice(0, 120).replace(/\s+/g, " ")}...`);
+      console.log(
+        `  [${c.n}] ${c.title} (chunk ${c.chunkId}): ${c.content.slice(0, 120).replace(/\s+/g, " ")}...`,
+      );
     }
   }
 
