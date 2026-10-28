@@ -4,9 +4,9 @@ import { readNdjson } from "./ndjson";
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
 const CHAT_MODEL = process.env.CHAT_MODEL ?? "llama3.2";
-// ak je najlepší chunk ďalej než táto vzdialenosť, LLM vôbec nevoláme
+// skip LLM entirely if the best chunk is farther than this cosine distance
 const MAX_DISTANCE = Number(process.env.MAX_DISTANCE ?? 0.55);
-// koľko chunkov ide do promptu (menej = rýchlejšie spracovanie)
+// number of chunks passed to the prompt
 const TOP_K = Number(process.env.TOP_K ?? 3);
 export const NOT_FOUND = "I could not find this in the documents.";
 
@@ -51,7 +51,6 @@ function buildPrompt(question: string, sources: Source[]) {
   return { system, user };
 }
 
-// 1. vyhľadanie + lacný filter: nič dosť blízko, nevoláme LLM
 async function retrieve(question: string) {
   const { results, bestVectorDistance } = await searchHybrid(question, TOP_K);
 
@@ -99,7 +98,6 @@ function ollamaChat(
   });
 }
 
-// ktoré zdroje model skutočne citoval (ignorujeme neexistujúce čísla)
 function citedFrom(text: string, sources: Source[]): Source[] {
   const nums = new Set(
     [...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1])),
@@ -107,7 +105,6 @@ function citedFrom(text: string, sources: Source[]): Source[] {
   return sources.filter((s) => nums.has(s.n));
 }
 
-// odpoveď naraz (bez streamovania)
 export async function answer(question: string) {
   const r = await retrieve(question);
   if (r.skipped) {
@@ -137,7 +134,6 @@ export async function answer(question: string) {
   };
 }
 
-// odpoveď po kúskoch: najprv "token" udalosti, na konci jedna "done" s citáciami
 export async function* answerStream(
   question: string,
   signal?: AbortSignal,
@@ -147,7 +143,7 @@ export async function* answerStream(
   if (r.skipped) {
     yield {
       type: "done",
-      answer: NOT_FOUND, // "I could not find this in the documents."
+      answer: NOT_FOUND,
       citations: [],
       skippedLlm: true,
       bestVectorDistance: r.bestVectorDistance,
@@ -183,11 +179,11 @@ export async function* answerStream(
   };
 }
 
-// použitie: bun run src/chat.ts "otázka"  (text sa vypisuje priebežne)
+// Usage: bun run src/chat.ts "question"
 if (import.meta.main) {
   const question = process.argv.slice(2).join(" ");
   if (!question) {
-    console.error('Použitie: bun run src/chat.ts "otázka"');
+    console.error('Usage: bun run src/chat.ts "question"');
     process.exit(1);
   }
 
@@ -208,14 +204,14 @@ if (import.meta.main) {
 
   if (done?.skippedLlm) {
     console.log(
-      `(LLM sa nevolal, najlepšia vzdialenosť ${done.bestVectorDistance?.toFixed(3)} > prah ${MAX_DISTANCE})`,
+      `(LLM skipped — best distance ${done.bestVectorDistance?.toFixed(3)} > threshold ${MAX_DISTANCE})`,
     );
   } else if (done && done.citations.length === 0 && done.answer !== NOT_FOUND) {
-    console.log("(pozor: model necitoval žiadny zdroj)");
+    console.log("(warning: model cited no sources)");
   }
 
   if (done && done.citations.length > 0) {
-    console.log("Zdroje:");
+    console.log("Sources:");
     for (const c of done.citations) {
       console.log(
         `  [${c.n}] ${c.title} (chunk ${c.chunkId}): ${c.content.slice(0, 120).replace(/\s+/g, " ")}...`,
@@ -225,6 +221,6 @@ if (import.meta.main) {
 
   const total = ((Date.now() - t0) / 1000).toFixed(1);
   const first = firstTokenMs === null ? "-" : (firstTokenMs / 1000).toFixed(1);
-  console.log(`\nPrvý token: ${first} s, spolu: ${total} s`);
+  console.log(`\nFirst token: ${first}s  total: ${total}s`);
   await client.end();
 }

@@ -3,12 +3,10 @@ import { db, client } from "./db";
 import { chunks, documents } from "./db/schema";
 import { embed } from "./embed";
 
-// Nahradiť rizikové to_tsquery stabilným websearch_to_tsquery
 export async function searchFullText(query: string, limit = 5) {
-  // 1. Odstránime otázniky a iné operátory, ktoré vadia Postgresu
+  // websearch_to_tsquery is safer than to_tsquery — handles punctuation without throwing
   const cleanQuery = query.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
 
-  // Ak po očistení neostalo žiadne slovo, vrátime prázdne pole
   if (!cleanQuery) return [];
 
   const tsquery = sql`websearch_to_tsquery('english', ${cleanQuery})`;
@@ -28,11 +26,10 @@ export async function searchFullText(query: string, limit = 5) {
     .limit(limit);
 }
 
-// Oprava typov pri queryVector
 export async function searchVector(query: string, limit = 5) {
   const vectors = await embed([query]);
   const queryVector = vectors[0];
-  if (!queryVector) throw new Error("Chyba pri generovaní embeddingu.");
+  if (!queryVector) throw new Error("Failed to generate embedding.");
 
   const distance = cosineDistance(chunks.embedding, queryVector);
 
@@ -89,33 +86,27 @@ export async function searchHybrid(
   };
 }
 
-// použitie: bun run src/search.ts [vector|fts|hybrid] "otázka"
+// Usage: bun run src/search.ts [vector|fts|hybrid] "query"
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const modes = ["vector", "fts", "hybrid"];
   const mode = modes.includes(args[0]) ? args.shift()! : "vector";
   const query = args.join(" ");
   if (!query) {
-    console.error(
-      'Použitie: bun run src/search.ts [vector|fts|hybrid] "otázka"',
-    );
+    console.error('Usage: bun run src/search.ts [vector|fts|hybrid] "query"');
     process.exit(1);
   }
 
   if (mode === "fts") {
     const results = await searchFullText(query);
-    if (results.length === 0) console.log("Žiadne zhody.");
+    if (results.length === 0) console.log("No matches.");
     for (const r of results) {
-      console.log(
-        `\n[${r.id}] ${r.title}  (skóre: ${Number(r.rank).toFixed(3)})`,
-      );
+      console.log(`\n[${r.id}] ${r.title}  (score: ${Number(r.rank).toFixed(3)})`);
       console.log(r.content.slice(0, 200));
     }
   } else if (mode === "hybrid") {
     const { results, bestVectorDistance } = await searchHybrid(query);
-    console.log(
-      `Najlepšia vektorová vzdialenosť: ${bestVectorDistance?.toFixed(3)}`,
-    );
+    console.log(`Best vector distance: ${bestVectorDistance?.toFixed(3)}`);
     for (const r of results) {
       console.log(`\n[${r.id}] ${r.title}  (RRF: ${r.score.toFixed(4)})`);
       console.log(r.content.slice(0, 200));
@@ -123,9 +114,7 @@ if (import.meta.main) {
   } else {
     const results = await searchVector(query);
     for (const r of results) {
-      console.log(
-        `\n[${r.id}] ${r.title}  (vzdialenosť: ${Number(r.distance).toFixed(3)})`,
-      );
+      console.log(`\n[${r.id}] ${r.title}  (distance: ${Number(r.distance).toFixed(3)})`);
       console.log(r.content.slice(0, 200));
     }
   }

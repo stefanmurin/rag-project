@@ -11,7 +11,6 @@ const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ");
 const isHit = (content: string, expected: string[]) =>
   expected.some((e) => norm(content).includes(norm(e)));
 
-// poradie prvého správneho chunku (1 = prvý), alebo null ak v top 5 nie je
 function rankOf(rows: { content: string }[], expected: string[]): number | null {
   const i = rows.findIndex((r) => isHit(r.content, expected));
   return i === -1 ? null : i + 1;
@@ -36,8 +35,8 @@ function record(method: string, rank: number | null) {
 const inCorpus = questions.filter((q) => q.expected);
 const outOfCorpus = questions.filter((q) => !q.expected);
 
-console.log("\n=== OTÁZKY Z DOKUMENTOV (poradie správneho chunku, '-' = nie je v top 5) ===\n");
-console.log("vec  fts  hyb  otázka");
+console.log("\n=== IN-CORPUS QUESTIONS (rank of correct chunk, '-' = not in top 5) ===\n");
+console.log("vec  fts  hyb  question");
 
 const hitDistances: number[] = [];
 
@@ -61,16 +60,16 @@ for (const q of inCorpus) {
 }
 
 const n = inCorpus.length;
-console.log("\n=== SÚHRN ===\n");
-console.log("metóda   top-1        top-5        MRR");
+console.log("\n=== SUMMARY ===\n");
+console.log("method   top-1        top-5        MRR");
 for (const [method, s] of Object.entries(stats)) {
   console.log(
     `${method.padEnd(8)} ${`${s.top1}/${n}`.padEnd(12)} ${`${s.top5}/${n}`.padEnd(12)} ${(s.rrSum / n).toFixed(3)}`,
   );
 }
 
-console.log("\n=== OTÁZKY MIMO DOKUMENTOV (nemali by nič nájsť) ===\n");
-console.log("najlepšia vzdialenosť  fts zhody  najlepšie RRF  otázka");
+console.log("\n=== OUT-OF-CORPUS QUESTIONS (should return nothing) ===\n");
+console.log("best vector dist       fts hits   best RRF       question");
 
 const outDistances: number[] = [];
 for (const q of outOfCorpus) {
@@ -85,13 +84,13 @@ for (const q of outOfCorpus) {
 if (hitDistances.length && outDistances.length) {
   const maxHit = Math.max(...hitDistances);
   const minOut = Math.min(...outDistances);
-  console.log("\n=== PRAH PRE 'NENAŠIEL SOM' ===\n");
-  console.log(`Najväčšia vzdialenosť správneho chunku (z dokumentov): ${maxHit.toFixed(3)}`);
-  console.log(`Najmenšia najlepšia vzdialenosť (mimo dokumentov):     ${minOut.toFixed(3)}`);
+  console.log("\n=== NOT-FOUND THRESHOLD ===\n");
+  console.log(`Max distance for a correct in-corpus chunk: ${maxHit.toFixed(3)}`);
+  console.log(`Min best distance for out-of-corpus query:  ${minOut.toFixed(3)}`);
   console.log(
     maxHit < minOut
-      ? `Prah medzi ${maxHit.toFixed(3)} a ${minOut.toFixed(3)} ich čisto oddelí.`
-      : "Rozsahy sa prekrývajú, jednoduchý prah na vzdialenosť ich nerozlíši.",
+      ? `A threshold between ${maxHit.toFixed(3)} and ${minOut.toFixed(3)} cleanly separates them.`
+      : "Ranges overlap — a simple distance threshold won't separate them.",
   );
 }
 

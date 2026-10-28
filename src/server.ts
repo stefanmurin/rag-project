@@ -1,4 +1,3 @@
-// src/server.ts
 import { answerStream } from "./chat";
 import { ingestDocument } from "./ingest";
 import { db } from "./db";
@@ -15,39 +14,28 @@ Bun.serve({
   idleTimeout: 255,
   async fetch(req) {
     const url = new URL(req.url);
-    console.log(
-      `[POŽIADAVKA] Metóda: ${req.method} | Cesta: "${url.pathname}"`,
-    );
-    // 1. Riešenie CORS Preflight požiadaviek z prehliadača
+    console.log(`[REQUEST] ${req.method} ${url.pathname}`);
+
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
     if (url.pathname === "/api/reset" && req.method === "POST") {
       try {
-        // Vďaka cascade zmaže aj všetky naviazané chunky
         await db.delete(documents);
-
         return new Response(
-          JSON.stringify({
-            success: true,
-            message: "Databáza bola vyčistená.",
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ success: true, message: "Database cleared." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       } catch (err) {
-        console.error("Chyba pri resetovaní DB:", err);
-        return new Response(JSON.stringify({ error: "Reset zlyhal." }), {
+        console.error("Reset error:", err);
+        return new Response(JSON.stringify({ error: "Reset failed." }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    // 2. Chat SSE Stream pre React frontend
     if (url.pathname === "/chat/stream" && req.method === "POST") {
       try {
         const body = (await req.json()) as { question?: string };
@@ -55,11 +43,8 @@ Bun.serve({
 
         if (!question) {
           return new Response(
-            JSON.stringify({ error: "Pole 'question' je povinné." }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
+            JSON.stringify({ error: "Field 'question' is required." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
@@ -72,7 +57,7 @@ Bun.serve({
                   encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
                 );
               }
-              controller.close(); // Iba pri úspešnom dobehnutí!
+              controller.close();
             } catch (err) {
               controller.error(err);
             }
@@ -88,18 +73,14 @@ Bun.serve({
           },
         });
       } catch (err) {
-        console.error("Chyba v /chat/stream:", err);
+        console.error("/chat/stream error:", err);
         return new Response(
-          JSON.stringify({ error: "Interná chyba servera." }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ error: "Internal server error." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
 
-    // 3. Endpoint na nahrávanie a indexovanie dokumentov
     if (url.pathname === "/api/ingest" && req.method === "POST") {
       try {
         const body = (await req.json()) as { title?: string; content?: string };
@@ -108,47 +89,31 @@ Bun.serve({
 
         if (!title || !content) {
           return new Response(
-            JSON.stringify({ error: "Názov aj obsah dokumentu sú povinné." }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
+            JSON.stringify({ error: "Both 'title' and 'content' are required." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
           );
         }
 
-        // Zavolá ingest logiku (chunker -> embedding -> postgres)
         await ingestDocument(title, content);
 
         return new Response(
-          JSON.stringify({
-            success: true,
-            message: "Dokument bol úspešne uložený.",
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ success: true, message: "Document stored." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       } catch (err) {
-        console.error("Chyba v /api/ingest:", err);
+        console.error("/api/ingest error:", err);
         return new Response(
-          JSON.stringify({
-            error: "Chyba pri ukladaní a indexovaní dokumentu.",
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ error: "Failed to store and index document." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
 
-    // Všetko ostatné vráti 404
-    return new Response(JSON.stringify({ error: "Routa neexistuje." }), {
+    return new Response(JSON.stringify({ error: "Not found." }), {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   },
 });
 
-console.log("🚀 RAG Backend beží na http://localhost:3000");
+console.log("RAG backend running on http://localhost:3000");

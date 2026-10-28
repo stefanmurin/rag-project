@@ -1,5 +1,5 @@
-// Číta odpoveď, v ktorej každý riadok je samostatný JSON (formát, v akom streamuje Ollama).
-// Rieši to, že riadok (alebo aj viacbajtový znak) môže prísť rozdelený medzi dva kúsky dát.
+// Reads an NDJSON response (one JSON object per line) as used by Ollama's streaming API.
+// Handles the case where a line or multi-byte character arrives split across two chunks.
 export async function* readNdjson<T>(res: Response): AsyncGenerator<T> {
   if (!res.body) throw new Error("Response has no body");
 

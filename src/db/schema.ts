@@ -10,7 +10,7 @@ import {
   customType,
 } from "drizzle-orm/pg-core";
 
-// Drizzle nemá vstavaný typ tsvector, preto si ho definujeme sami
+// Drizzle has no built-in tsvector type, so we define one
 const tsvector = customType<{ data: string }>({
   dataType() {
     return "tsvector";
@@ -33,7 +33,7 @@ export const chunks = pgTable(
     position: integer("position").notNull(),
     content: text("content").notNull(),
     embedding: vector("embedding", { dimensions: 768 }).notNull(),
-    // generovaný stĺpec: Postgres ho vypočíta sám z content, pri vkladaní ho nezadávame
+    // generated column: Postgres computes it from content; never set it on insert
     contentTsv: tsvector("content_tsv").generatedAlwaysAs(
       sql`to_tsvector('english', content)`,
     ),

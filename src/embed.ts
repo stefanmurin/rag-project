@@ -13,3 +13,4 @@ export async function embed(texts: string[]): Promise<number[][]> {
   const data = (await res.json()) as { embeddings: number[][] };
   return data.embeddings;
 }
+

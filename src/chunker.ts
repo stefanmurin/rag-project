@@ -1,7 +1,6 @@
-// Rozdelí Markdown na chunky podľa nadpisov a odsekov.
-// Každý chunk začína cestou nadpisov (napr. "Docker > Storage"), takže:
-//  - nadpis sa nelepí na koniec predchádzajúceho chunku,
-//  - chunk nesie kontext, o čom je (pomáha vektorom aj full-textu).
+// Splits Markdown into chunks by headings and paragraphs.
+// Each chunk is prefixed with its heading path (e.g. "Docker > Storage") so
+// the chunk carries context about its section — helps both vector and full-text search.
 export function chunkMarkdown(text: string, maxChars = 800): string[] {
   const sections: { label: string; body: string }[] = [];
   const path: string[] = [];
@@ -43,7 +42,6 @@ export function chunkMarkdown(text: string, maxChars = 800): string[] {
     const push = (c: string) => chunks.push(prefix + c);
 
     for (const p of paragraphs) {
-      // príliš dlhý odsek: uložíme rozrobený chunk a odsek rozsekáme po znakoch
       if (p.length > budget) {
         if (current) {
           push(current);
