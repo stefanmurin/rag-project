@@ -212,3 +212,35 @@ Bun.serve({
 });
 
 console.log("RAG backend running on http://localhost:3000");
+
+// Preload both models into RAM in the background so the first real request is fast.
+const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
+const CHAT_MODEL  = process.env.CHAT_MODEL  ?? "llama3.2";
+const EMBED_MODEL = process.env.EMBED_MODEL ?? "nomic-embed-text";
+
+async function warmUp() {
+  try {
+    await Promise.all([
+      fetch(`${OLLAMA_URL}/api/embed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: EMBED_MODEL, input: ["warm-up"] }),
+      }),
+      fetch(`${OLLAMA_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          stream: false,
+          keep_alive: "5m",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      }),
+    ]);
+    console.log("Models warmed up.");
+  } catch {
+    // Ollama not ready yet — first real request will load the models
+  }
+}
+
+warmUp();

@@ -16,7 +16,7 @@ export function useChatStream() {
     }
     abortControllerRef.current = new AbortController();
 
-    const timeoutSignal = AbortSignal.timeout(30_000);
+    const timeoutSignal = AbortSignal.timeout(120_000);
     const combinedSignal = AbortSignal.any([
       abortControllerRef.current.signal,
       timeoutSignal,
@@ -108,7 +108,7 @@ export function useChatStream() {
       let errorMessage = "Could not connect to the server.";
 
       if (errorObj?.name === "TimeoutError") {
-        errorMessage = "Response took too long (>30s). The model was probably loading into memory — try again.";
+        errorMessage = "Response took too long (>2min). The model may still be loading — try again.";
       } else if (errorObj?.name === "AbortError") {
         return;
       }
