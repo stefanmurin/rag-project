@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type ChangeEvent } from "react";
+import { Upload } from "lucide-react";
 import type { Document } from "../types";
 
 const API = "http://localhost:3000";
@@ -99,10 +100,7 @@ export function DocumentSidebar({ onClearAll }: Props) {
           disabled={isUploading}
           className="w-full flex items-center gap-2 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 rounded-lg border border-zinc-700 transition-colors text-left"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-zinc-400 shrink-0">
-            <path d="M7.25 10.25a.75.75 0 001.5 0V4.56l1.22 1.22a.75.75 0 101.06-1.06l-2.5-2.5a.75.75 0 00-1.06 0l-2.5 2.5a.75.75 0 001.06 1.06l1.22-1.22v5.69z" />
-            <path d="M3.5 9.75a.75.75 0 00-1.5 0v1.5A2.75 2.75 0 004.75 14h6.5A2.75 2.75 0 0014 11.25v-1.5a.75.75 0 00-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25v-1.5z" />
-          </svg>
+          <Upload className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
           <span className="text-xs text-zinc-300 truncate">
             {selectedFile ? selectedFile.name : "Choose file…"}
           </span>
