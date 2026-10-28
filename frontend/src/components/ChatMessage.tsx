@@ -8,10 +8,9 @@ interface ChatMessageProps {
 export function ChatMessage({ message, isStreamingLast }: ChatMessageProps) {
   const isUser = message.role === "user";
 
-  // Čo sa reálne vypíše
   let displayText = message.content;
   if (!displayText) {
-    displayText = isStreamingLast ? "Premýšľam..." : "Žiadna odpoveď.";
+    displayText = isStreamingLast ? "Thinking..." : "No answer.";
   }
 
   return (

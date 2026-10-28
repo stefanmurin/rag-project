@@ -1,4 +1,3 @@
-// src/hooks/useChatStream.ts
 import { useState, useRef } from "react";
 import type { Message } from "../types";
 
@@ -6,6 +5,8 @@ export function useChatStream() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const clearMessages = () => setMessages([]);
 
   const sendMessage = async (query: string) => {
     if (!query.trim() || isStreaming) return;
@@ -15,9 +16,7 @@ export function useChatStream() {
     }
     abortControllerRef.current = new AbortController();
 
-    // Vytvoríme signál na 30 sekúnd
     const timeoutSignal = AbortSignal.timeout(30_000);
-    // Skombinujeme manuálny abort s 30s timeoutom
     const combinedSignal = AbortSignal.any([
       abortControllerRef.current.signal,
       timeoutSignal,
@@ -40,7 +39,7 @@ export function useChatStream() {
       });
 
       if (!res.ok || !res.body) {
-        throw new Error(`Chyba servera: ${res.status}`);
+        throw new Error(`Server error: ${res.status}`);
       }
 
       const reader = res.body.getReader();
@@ -88,10 +87,9 @@ export function useChatStream() {
                   if (last && last.role === "assistant") {
                     updated[updated.length - 1] = {
                       ...last,
-                      // Ak je obsah prázdny, použi data.answer (kde je fallback text z backendu)
                       content: last.content.trim()
                         ? last.content
-                        : data.answer || "V dokumentoch sa nenašla odpoveď.",
+                        : data.answer || "No answer found in the documents.",
                       citations: data.citations ?? [],
                     };
                   }
@@ -99,7 +97,7 @@ export function useChatStream() {
                 });
               }
             } catch (err) {
-              console.warn("Chyba pri parsovaní SSE JSON:", err);
+              console.warn("Failed to parse SSE JSON:", err);
             }
           }
         }
@@ -107,14 +105,12 @@ export function useChatStream() {
     } catch (err: unknown) {
       const errorObj = err as { name?: string };
 
-      let errorMessage = "Chyba pripojenia k serveru.";
+      let errorMessage = "Could not connect to the server.";
 
-      // Špecifická správa pri vypršaní 30s limitu
       if (errorObj?.name === "TimeoutError") {
-        errorMessage =
-          "Odpoveď trvala príliš dlho (viac ako 30 s). Model sa pravdepodobne načítaval do pamäte, skús otázku položiť znova.";
+        errorMessage = "Response took too long (>30s). The model was probably loading into memory — try again.";
       } else if (errorObj?.name === "AbortError") {
-        return; // Požiadavku zrušil používateľ novým dotazom
+        return;
       }
 
       setMessages((prev) => {
@@ -135,5 +131,5 @@ export function useChatStream() {
     }
   };
 
-  return { messages, isStreaming, sendMessage };
+  return { messages, isStreaming, sendMessage, clearMessages };
 }

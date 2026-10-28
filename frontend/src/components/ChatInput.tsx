@@ -21,7 +21,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Napíš otázku..."
+        placeholder="Ask a question..."
         disabled={disabled}
         className="flex-1 p-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
       />
@@ -30,7 +30,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         disabled={disabled || !input.trim()}
         className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 font-medium rounded-lg transition"
       >
-        Odoslať
+        Send
       </button>
     </form>
   );

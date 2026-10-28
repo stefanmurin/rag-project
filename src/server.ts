@@ -1,11 +1,12 @@
+import { count, desc, eq } from "drizzle-orm";
 import { answerStream } from "./chat";
 import { ingestDocument } from "./ingest";
 import { db } from "./db";
-import { documents } from "./db/schema";
+import { chunks, documents } from "./db/schema";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -18,6 +19,49 @@ Bun.serve({
 
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (url.pathname === "/api/documents" && req.method === "GET") {
+      try {
+        const docs = await db
+          .select({
+            id: documents.id,
+            title: documents.title,
+            createdAt: documents.createdAt,
+            chunkCount: count(chunks.id),
+          })
+          .from(documents)
+          .leftJoin(chunks, eq(chunks.documentId, documents.id))
+          .groupBy(documents.id)
+          .orderBy(desc(documents.createdAt));
+
+        return new Response(JSON.stringify(docs), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("/api/documents error:", err);
+        return new Response(JSON.stringify({ error: "Failed to fetch documents." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const deleteMatch = url.pathname.match(/^\/api\/documents\/(\d+)$/);
+    if (deleteMatch && req.method === "DELETE") {
+      try {
+        const id = Number(deleteMatch[1]);
+        await db.delete(documents).where(eq(documents.id, id));
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("/api/documents/:id DELETE error:", err);
+        return new Response(JSON.stringify({ error: "Failed to delete document." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (url.pathname === "/api/reset" && req.method === "POST") {

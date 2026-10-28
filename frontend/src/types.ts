@@ -10,3 +10,10 @@ export interface Message {
   content: string;
   citations?: Citation[];
 }
+
+export interface Document {
+  id: number;
+  title: string;
+  createdAt: string;
+  chunkCount: number;
+}
