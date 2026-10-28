@@ -84,32 +84,34 @@ export function DocumentSidebar({ onClearAll }: Props) {
 
       {/* Upload section */}
       <div className="px-3 py-3 border-b border-zinc-800 space-y-2">
-        <label className="block">
-          <span className="sr-only">Choose file</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".txt,.md,.pdf"
-            onChange={handleFileChange}
-            disabled={isUploading}
-            className="w-full text-xs text-zinc-500
-              file:mr-2 file:py-1 file:px-2.5
-              file:rounded-lg file:border-0
-              file:text-xs file:font-medium
-              file:bg-zinc-800 file:text-zinc-300
-              hover:file:bg-zinc-700 hover:file:text-zinc-100
-              file:transition-colors file:cursor-pointer cursor-pointer"
-          />
-        </label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.md,.pdf"
+          onChange={handleFileChange}
+          disabled={isUploading}
+          className="hidden"
+        />
 
-        {selectedFile && (
-          <p className="text-xs text-zinc-500 truncate pl-0.5">
-            {selectedFile.name}
-            <span className="text-zinc-700 ml-1">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 rounded-lg border border-zinc-700 transition-colors text-left"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-zinc-400 shrink-0">
+            <path d="M7.25 10.25a.75.75 0 001.5 0V4.56l1.22 1.22a.75.75 0 101.06-1.06l-2.5-2.5a.75.75 0 00-1.06 0l-2.5 2.5a.75.75 0 001.06 1.06l1.22-1.22v5.69z" />
+            <path d="M3.5 9.75a.75.75 0 00-1.5 0v1.5A2.75 2.75 0 004.75 14h6.5A2.75 2.75 0 0014 11.25v-1.5a.75.75 0 00-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25v-1.5z" />
+          </svg>
+          <span className="text-xs text-zinc-300 truncate">
+            {selectedFile ? selectedFile.name : "Choose file…"}
+          </span>
+          {selectedFile && (
+            <span className="text-xs text-zinc-600 ml-auto shrink-0">
               {(selectedFile.size / 1024).toFixed(1)} KB
             </span>
-          </p>
-        )}
+          )}
+        </button>
 
         {uploadStatus && (
           <p className={`text-xs font-medium pl-0.5 ${uploadStatus === "success" ? "text-emerald-400" : "text-rose-400"}`}>
