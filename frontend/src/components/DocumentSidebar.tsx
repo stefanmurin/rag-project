@@ -18,7 +18,7 @@ interface Props {
 export function DocumentSidebar({ onClearAll }: Props) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,14 +51,19 @@ export function DocumentSidebar({ onClearAll }: Props) {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error();
-      setUploadStatus("success");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      setUploadStatus({ ok: true, msg: "Indexed!" });
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await fetchDocs();
       setTimeout(() => setUploadStatus(null), 2500);
-    } catch {
-      setUploadStatus("error");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed.";
+      console.error("Upload error:", msg);
+      setUploadStatus({ ok: false, msg });
     } finally {
       setIsUploading(false);
     }
@@ -119,8 +124,8 @@ export function DocumentSidebar({ onClearAll }: Props) {
         </button>
 
         {uploadStatus && (
-          <p className={`text-xs font-medium pl-0.5 ${uploadStatus === "success" ? "text-emerald-400" : "text-rose-400"}`}>
-            {uploadStatus === "success" ? "Indexed!" : "Upload failed."}
+          <p className={`text-xs font-medium pl-0.5 ${uploadStatus.ok ? "text-emerald-400" : "text-rose-400"}`}>
+            {uploadStatus.msg}
           </p>
         )}
 
