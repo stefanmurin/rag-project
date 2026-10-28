@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, type ChangeEvent } from "react";
-import { Upload } from "lucide-react";
+import { Upload, FileText, FileCode2, File, Trash2 } from "lucide-react";
 import type { Document } from "../types";
+
+function FileIcon({ title }: { title: string }) {
+  const ext = title.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />;
+  if (ext === "md")  return <FileCode2 className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />;
+  return <File className="w-3.5 h-3.5 text-zinc-500 shrink-0 mt-0.5" />;
+}
 
 const API = "http://localhost:3000";
 
@@ -135,18 +142,19 @@ export function DocumentSidebar({ onClearAll }: Props) {
             {docs.map((doc) => (
               <li
                 key={doc.id}
-                className="flex items-start justify-between gap-1 rounded-lg px-2 py-2 hover:bg-zinc-800/60 group transition-colors"
+                className="flex items-start justify-between gap-2 rounded-lg px-2 py-2 hover:bg-zinc-800/60 group transition-colors"
               >
-                <div className="min-w-0">
+                <FileIcon title={doc.title} />
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-zinc-300 truncate leading-snug">{doc.title}</p>
                   <p className="text-xs text-zinc-600 mt-0.5">{doc.chunkCount} chunks</p>
                 </div>
                 <button
                   onClick={() => handleDelete(doc.id)}
-                  className="shrink-0 w-4 h-4 mt-0.5 text-zinc-700 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all text-xs leading-none"
+                  className="shrink-0 text-zinc-700 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all mt-0.5"
                   title="Delete"
                 >
-                  ✕
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </li>
             ))}

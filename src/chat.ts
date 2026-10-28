@@ -105,35 +105,6 @@ function citedFrom(text: string, sources: Source[]): Source[] {
   return sources.filter((s) => nums.has(s.n));
 }
 
-export async function answer(question: string) {
-  const r = await retrieve(question);
-  if (r.skipped) {
-    return {
-      answer: NOT_FOUND,
-      cited: [] as Source[],
-      sources: [] as Source[],
-      skippedLlm: true,
-      bestVectorDistance: r.bestVectorDistance,
-    };
-  }
-
-  const { system, user } = buildPrompt(question, r.sources);
-  const res = await ollamaChat(system, user, false);
-  if (!res.ok)
-    throw new Error(`Ollama chat error ${res.status}: ${await res.text()}`);
-
-  const data = (await res.json()) as { message: { content: string } };
-  const text = data.message.content.trim();
-
-  return {
-    answer: text,
-    cited: citedFrom(text, r.sources),
-    sources: r.sources,
-    skippedLlm: false,
-    bestVectorDistance: r.bestVectorDistance,
-  };
-}
-
 export async function* answerStream(
   question: string,
   signal?: AbortSignal,

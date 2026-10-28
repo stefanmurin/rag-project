@@ -6,25 +6,35 @@ interface ChatMessageProps {
   isStreamingLast?: boolean;
 }
 
+function ThinkingDots() {
+  return (
+    <div className="flex gap-1 items-center h-5">
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ChatMessage({ message, isStreamingLast }: ChatMessageProps) {
   const isUser = message.role === "user";
-
-  let displayText = message.content;
-  if (!displayText) {
-    displayText = isStreamingLast ? "Thinking..." : "No answer.";
-  }
 
   if (isUser) {
     return (
       <div className="flex justify-end">
         <div className="bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[78%] text-sm leading-relaxed">
-          {displayText}
+          {message.content}
         </div>
       </div>
     );
   }
 
   const citations = message.citations ?? [];
+  const isThinking = isStreamingLast && !message.content;
 
   return (
     <div className="flex gap-3 max-w-[92%]">
@@ -32,9 +42,13 @@ export function ChatMessage({ message, isStreamingLast }: ChatMessageProps) {
         <Sparkles className="w-3 h-3 text-indigo-400" />
       </div>
       <div className="flex-1 min-w-0 pt-0.5">
-        <p className="text-zinc-100 text-sm leading-relaxed whitespace-pre-wrap">
-          {displayText}
-        </p>
+        {isThinking ? (
+          <ThinkingDots />
+        ) : (
+          <p className="text-zinc-100 text-sm leading-relaxed whitespace-pre-wrap">
+            {message.content || "No answer."}
+          </p>
+        )}
         {citations.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {citations.map((c) => (
