@@ -1,4 +1,5 @@
 import { count, desc, eq } from "drizzle-orm";
+import { extractText } from "unpdf";
 import { answerStream } from "./chat";
 import { ingestDocument } from "./ingest";
 import { db } from "./db";
@@ -146,6 +147,56 @@ Bun.serve({
         );
       } catch (err) {
         console.error("/api/ingest error:", err);
+        return new Response(
+          JSON.stringify({ error: "Failed to store and index document." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    if (url.pathname === "/api/ingest/file" && req.method === "POST") {
+      try {
+        const formData = await req.formData();
+        const file = formData.get("file");
+        if (!(file instanceof File)) {
+          return new Response(
+            JSON.stringify({ error: "Field 'file' is required." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        if (!["md", "txt", "pdf"].includes(ext ?? "")) {
+          return new Response(
+            JSON.stringify({ error: "Supported formats: .md, .txt, .pdf" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        let content: string;
+        if (ext === "pdf") {
+          const buffer = await file.arrayBuffer();
+          const { text } = await extractText(new Uint8Array(buffer));
+          const raw = Array.isArray(text) ? text.join("\n\n") : text;
+          content = raw.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+        } else {
+          content = await file.text();
+        }
+
+        if (!content) {
+          return new Response(
+            JSON.stringify({ error: "File appears to be empty." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        await ingestDocument(file.name, content);
+        return new Response(
+          JSON.stringify({ success: true, message: "Document stored." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      } catch (err) {
+        console.error("/api/ingest/file error:", err);
         return new Response(
           JSON.stringify({ error: "Failed to store and index document." }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -37,11 +37,11 @@ export function DocumentSidebar({ onClearAll }: Props) {
     setIsUploading(true);
     setUploadStatus(null);
     try {
-      const content = await selectedFile.text();
-      const res = await fetch(`${API}/api/ingest`, {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      const res = await fetch(`${API}/api/ingest/file`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: selectedFile.name, content }),
+        body: formData,
       });
       if (!res.ok) throw new Error();
       setUploadStatus("success");
@@ -89,7 +89,7 @@ export function DocumentSidebar({ onClearAll }: Props) {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".txt,.md"
+            accept=".txt,.md,.pdf"
             onChange={handleFileChange}
             disabled={isUploading}
             className="w-full text-xs text-zinc-500
